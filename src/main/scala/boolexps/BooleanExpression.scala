@@ -1,15 +1,13 @@
 package boolexps
 
 import scala.languageFeature.postfixOps
-
 import net.liftweb.json._
 
 sealed trait BooleanExpression {
   def toJSON: String = {
     val s: String = {
       this match {
-        case True => "true"
-        case False => "false"
+        //case Variable(symbol) => s""""$symbol""""
         case Not(e) => s""""NOT", ${e toJSON}"""
         case Or(e1, e2) => s""" "OR", ${e1 toJSON}, ${e2 toJSON} """
         case And(e1, e2) => s""" "AND", ${e1 toJSON}, ${e2 toJSON} """
@@ -19,9 +17,13 @@ sealed trait BooleanExpression {
   }
 }
 
-case object True extends BooleanExpression
+case object True extends BooleanExpression {
+  override def toJSON: String = "true"
+}
 
-case object False extends BooleanExpression
+case object False extends BooleanExpression {
+  override def toJSON: String = "false"
+}
 
 case class Variable(symbol: String) extends BooleanExpression {
   override def toJSON: String = s""""$symbol"""" // we don't need or want solitary variables to be in a JSON array
@@ -41,7 +43,7 @@ object BooleanExpression {
     * @return A `Some` containing the corresponding deserialized BooleanExpression, or a `None` if the JSON was
     *         malformed.
     */
-  def deserialize(l: List[JValue]): Option[BooleanExpression] = {
+  private def deserialize(l: List[JValue]): Option[BooleanExpression] = {
     l match {
       // if it's a single value, it must be a variable or boolean literal, so just evaluate it
       case (js: JString) :: Nil => deserialize(js)
@@ -67,7 +69,7 @@ object BooleanExpression {
     * @param jv the JValue to serialize
     * @return A `Some` containing the deserialized BooleanExpression, or a `None` if the JSON was malformed
     */
-  def deserialize(jv: JValue): Option[BooleanExpression] = {
+  private def deserialize(jv: JValue): Option[BooleanExpression] = {
     jv match {
       case JsonAST.JString(s) => {
         // check that the String isn't a reserved keyword, otherwise make it a variable
@@ -90,7 +92,6 @@ object BooleanExpression {
   def deserialize(s: String): Option[BooleanExpression] = deserialize(parse(s))
 
   def main(args: Array[String]): Unit = {
-
+    deserialize("gibberish")
   }
-
 }
