@@ -3,6 +3,55 @@ package boolexps
 import scala.languageFeature.postfixOps
 import net.liftweb.json._
 
+/** Represents a boolean statement that can encode conjunctions, disjunctions, negations, atoms (named variables), and
+  * any combination of those.
+  * <br><br>
+  * Can be serialized to JSON and deserialized from JSON (the latter uses a function in the companion object). The
+  * generated JSON is compliant with [[https://tools.ietf.org/html/rfc8259#section-2 RFC 8259]]
+  * <br><br>
+  * The structure of the JSON is inspired by LISP S-Expressions. The Extended Bachus-Naur form describing the grammar of
+  * all valid JSON strings is given below, but in essence it is composed of boolean literals ("true", "false"), string
+  * literals (variable names), and/or JSON arrays containing, in order, a boolean operand (as a string) and one or two
+  * valid operands, depending on the valency of the operator. Operators are case insensitive strings, variables are
+  * case sensitive strings. Embedding any expression inside an array as the sole member of that array does not change
+  * meaning, and thus redundant brackets are acceptable, but discouraged for readability.
+  *
+  * <br><br>
+  * EBNF (whitespace not accounted for here, follows usual JSON specifications):
+  * <br><br>
+  *
+  * JSON-bool-expr = literal | not-expr | or-expr | and-expr | "[", JSON-bool-expr, "]" ;
+  *
+  * <br><br>
+  * literal = boolean-literal | variable-literal
+  *
+  * <br><br>
+  * boolean-literal = true | false
+  *
+  * <br><br>
+  * true = "t"|"T", "r"|"R", "u"|"U", "e"|"E"
+  *
+  * <br><br>
+  * false = "f"|"F", "a"|"A", "l"|"L", "s"|"S", "e"|"E"
+  *
+  * <br><br>
+  * variable-literal = ? any valid JSON string without whitespace besides not-str, or-str, and-str ?
+  *
+  * <br><br>
+  * not-expr = "[", not-str, JSON-bool-expr, "]"
+  *
+  * <br><br>
+  * or-expr = "[", or-str, JSON-bool-expr, ",", JSON-bool-expr, "]"
+  *
+  * <br><br>
+  * and-expr = "[", and-str, JSON-bool-expr, ",", JSON-bool-expr, "]"
+  *
+  * not-str = '"', "n"|"N", "o"|"O", "t"|"T", '",'
+  *
+  * or-str = "'"', o"|"O", "r"|"R", '",'
+  *
+  * and-str = '"', "a"|"A", "n"|"N", "d"|"D", '",'
+  */
 sealed trait BooleanExpression {
   import BooleanExpression._
 
@@ -11,15 +60,30 @@ sealed trait BooleanExpression {
     */
   def allVars: Set[String] = Set.empty // operator and variable case classes override this.
 
-  def isDNF: Boolean = true
+  /** Given a logical interpretation (a mapping of variables to their truth values), calculates the truth value of this
+    * expression using that interpretation.
+    *
+    * @param interp a logical interpretation as represented by a map whose keys are variable names and whose values are
+    *               the true/false values of those variables
+    * @return a [[scala.Some Some]] containing the result of the evaluation, or a [[scala.None None]] if given an
+    *         invalid interpretation (i.e. one lacking some of the variables in this expression)
+    */
+  def evaluateForInterpretation(interp: Map[String, Boolean]): Option[Boolean]
+
+  lazy val interpretations: Set[Map[String, Boolean]] = makeInterpretations(allVars)
 
   /**
-    * Checks if this BooleanExpression is logically equivalent to another one, i.e. their truth tables are identical.
+    * Determines if this object is in disjunctive normal form.
+    * @return `true` if this object is in disjunctive normal form, or `false` otherwise.
+    */
+  def isDNF: Boolean = true // operator case classes override this.
+
+  /** Checks if this BooleanExpression is logically equivalent to another one, i.e. their truth tables are identical.
     * Note that, as a consequence of the Cook-Levin theorem, this is an NP-complete problem. Thus this function should
-    * not be called on BooleanExpressions containing more than a small handful of variables.
+    * not be called on `BooleanExpression`s containing more than a small number of variables.
     *
     * @param otherExpr the other expression to be compared against
-    * @return `true` iff these two expressions are equivalent, false otherwise
+    * @return `true` iff these two expressions are equivalent, `false` otherwise
     */
   def isEquivalentTo(otherExpr: BooleanExpression): Boolean = {
     // first we simplify
@@ -30,84 +94,63 @@ sealed trait BooleanExpression {
 
     // no variables in either expression, meaning both are True/False literals
     if (thisVars.isEmpty && otherVars.isEmpty) thisSimp == otherSimp
+    // no variables in common
     else if (thisVars.nonEmpty && otherVars.nonEmpty && thisVars.intersect(otherVars).isEmpty) false
-    else {
+    else { // compare truth tables
       val interps = makeInterpretations(thisVars ++ otherVars)
       interps.forall(i => thisSimp.evaluateForInterpretation(i) == otherSimp.evaluateForInterpretation(i))
     }
   }
 
-  def evaluateForInterpretation(interp: Map[String, Boolean]): Option[Boolean]
-
-  /**
-    * `true` iff this is a literal (an atom or the negation of an atom), `false` otherwise.
+  /** Determines if this expression is a literal (an atom or the negation of an atom)
+    * @return `true` iff this is a literal, `false` otherwise.
     */
   def isLiteral: Boolean = false // literal case classes override this
 
-  def isTF: Boolean = false
+  /** Determines if this expression has only one binary operator.
+    * <br>
+    * An expression has only one binary operator if it consists only of [[boolexps.Variable variables]],
+    * [[boolexps.Not negations]] of variables, and a single binary operator: either [[boolexps.Or Or]] or
+    * [[boolexps.And]], but not both. In other words, a single-binary-operator expression is either an Or of Ors, or an
+    * And of Ands.
+    * <br>
+    * @return
+    */
+  def isSingleBinaryOperatorExpression: Boolean
 
-  /**
-    * Simplifies this expression according to a specific subset of the laws of boolean algebra. This function makes no
-    * guarantees regarding how or to what extent the expression will be simplified, other than that the resultant
-    * expression will be logically equivalent to the current object, and that literals will not be modified.
+  /** Negate this expression. The result is logically, but not necessarily structurally, equivalent to wrapping the
+    * expression in [[boolexps.Not Not()]].
+    * @return the negation of this expression.
+    */
+  def negate: BooleanExpression
+
+  /** Distributes all conjunctions over disjunctions such that no disjunctions are nested inside any conjunctions, which
+    * has the effect of producing a `BooleanExpression` in disjunctive normal form when called on a `BooleanExpression`
+    * in negation normal form.
+    *
+    * @return a `BooleanExpression` which contains no disjunctions nested inside any conjunction.
+    */
+  def NNFtoDNF: BooleanExpression
+
+  /** Simplifies this expression according to a specific subset of the laws of boolean algebra.
+    *
+    * This function makes no guarantees regarding how or to what extent the expression will be simplified, other than
+    * that the resultant expression will be logically equivalent to the current one, and that literals will not be
+    * modified.
     *
     * @return a `BooleanExpression` equivalent to the current object, which may be simplified to some degree.
     */
   def simplify: BooleanExpression = this // operator case classes override this.
 
-  /**
-    * Convert this expression to disjunctive normal form.
+  /** Convert this expression to disjunctive normal form.
     * @return the disjunctive normal form equivalent of this BooleanExpression.
     */
-  def toDNF: BooleanExpression = this // operator case classes override this.
+  final lazy val toDNF: BooleanExpression = toNNF.simplify.NNFtoDNF
 
-  /**
-    * Returns the JSON-serialized equivalent of this expression, compliant with
-    * <a href="https://tools.ietf.org/html/rfc8259#section-2">RFC 8259</a>. The structure of the JSON is inspired by
-    * LISP S-Expressions. The Extended Bachus-Naur form describing the grammar of all valid JSON strings is given below,
-    * but in essence it is composed of boolean literals ("true", "false"), string literals (variable names), and/or JSON
-    * arrays containing, in order, a boolean operand (as a string) and one or two valid operands, depending on the
-    * valency of the operator. Operators are case insensitive strings, variables are case sensitive strings. Embedding
-    * any expression inside an array as the sole member of that array does not change meaning, and thus redundant
-    * brackets are acceptable, but discouraged for readability.
+  /** Generates the JSON-serialized equivalent of this expression.
     *
-    * <br><br>
-    * EBNF (whitespace not accounted for here, follows usual JSON specifications):
-    * <br><br>
-    *
-    * JSON-bool-expr = literal | not-expr | or-expr | and-expr | "[", JSON-bool-expr, "]" ;
-    *
-    * <br><br>
-    * literal = boolean-literal | variable-literal
-    *
-    * <br><br>
-    * boolean-literal = true | false
-    *
-    * <br><br>
-    * true = "t"|"T", "r"|"R", "u"|"U", "e"|"E"
-    *
-    * <br><br>
-    * false = "f"|"F", "a"|"A", "l"|"L", "s"|"S", "e"|"E"
-    *
-    * <br><br>
-    * variable-literal = ? any valid JSON string without whitespace besides not-str, or-str, and-str ?
-    *
-    * <br><br>
-    * not-expr = "[", not-str, JSON-bool-expr, "]"
-    *
-    * <br><br>
-    * or-expr = "[", or-str, JSON-bool-expr, ",", JSON-bool-expr, "]"
-    *
-    * <br><br>
-    * and-expr = "[", and-str, JSON-bool-expr, ",", JSON-bool-expr, "]"
-    *
-    * not-str = '"', "n"|"N", "o"|"O", "t"|"T", '",'
-    *
-    * or-str = "'"', o"|"O", "r"|"R", '",'
-    *
-    * and-str = '"', "a"|"A", "n"|"N", "d"|"D", '",'
-    *
-    * @return the JSON-serialized equivalent of this expression (i.e. "true").
+    * For a description of the grammar of the
+    * JSON, see this class' documentation.
     */
   def toJSON: String = {
     val s: String = {
@@ -120,53 +163,38 @@ sealed trait BooleanExpression {
     '[' + s + ']'
   }
 
-  /**
-    * Convert this expression to negation normal form.
+  /** Convert this expression to negation normal form.
     * @return the negation normal form equivalent of this BooleanExpression.
     */
   def toNNF: BooleanExpression = this
-
-  /**
-    * Negate this expression.
-    * @return the negation of this expression.
-    */
-  def negate: BooleanExpression
 }
 
 case object True extends BooleanExpression {
   override def evaluateForInterpretation(interp: Map[String, Boolean]): Option[Boolean] = Option(true)
 
-  /**
-    * Returns the JSON-serialized equivalent of this expression. Per
-    * <a href="https://tools.ietf.org/html/rfc8259#section-2">RFC 8259</a>, boolean literals are valid JSON (i.e. they
-    * do not need to be contained in a larger structure)
-    * @return the JSON-serialized equivalent of this expression (i.e. "true").
-    */
-  override def toJSON: String = "true"
+  override lazy val isLiteral: Boolean = true
 
-  override def isTF: Boolean = true
+  override lazy val isSingleBinaryOperatorExpression: Boolean = true
 
-  override def isLiteral: Boolean = true
+  override lazy val toJSON: String = "true"
 
-  override def negate: BooleanExpression = False
+  override lazy val negate: BooleanExpression = False
+
+  override lazy val NNFtoDNF: BooleanExpression = this
 }
 
 case object False extends BooleanExpression {
   override def evaluateForInterpretation(interp: Map[String, Boolean]): Option[Boolean] = Option(false)
 
-  override def isTF: Boolean = true
-
-  /**
-    * Returns the JSON-serialized equivalent of this expression. Per
-    * <a href="https://tools.ietf.org/html/rfc8259#section-2">RFC 8259</a>, boolean literals are valid JSON (i.e. they
-    * do not need to be contained in a larger structure)
-    * @return the JSON-serialized equivalent of this expression (i.e. "false").
-    */
-  override lazy val toJSON: String = "false"
-
   override lazy val isLiteral: Boolean = true
 
+  override lazy val isSingleBinaryOperatorExpression: Boolean = true
+
   override lazy val negate: BooleanExpression = True
+
+  override lazy val NNFtoDNF: BooleanExpression = this
+
+  override lazy val toJSON: String = "false"
 }
 
 case class Variable(symbol: String) extends BooleanExpression {
@@ -174,17 +202,15 @@ case class Variable(symbol: String) extends BooleanExpression {
 
   override def evaluateForInterpretation(interp: Map[String, Boolean]): Option[Boolean] = interp.get(symbol)
 
-  /**
-    * Returns the JSON-serialized equivalent of this expression. Per
-    * <a href="https://tools.ietf.org/html/rfc8259#section-2">RFC 8259</a>, string literals are valid JSON (i.e. they
-    * do not need to be contained in a larger structure)
-    * @return the JSON-serialized equivalent of this expression (i.e. the variable name as a JSON string).
-    */
-  override lazy val toJSON: String = s""""$symbol""""
-
   override lazy val isLiteral: Boolean = true
 
+  override lazy val isSingleBinaryOperatorExpression: Boolean = true
+
   override lazy val negate: BooleanExpression = Not(this)
+
+  override lazy val NNFtoDNF: BooleanExpression = this
+
+  override lazy val toJSON: String = s""""$symbol""""
 }
 
 case class Not(e: BooleanExpression) extends BooleanExpression {
@@ -193,29 +219,35 @@ case class Not(e: BooleanExpression) extends BooleanExpression {
   override def evaluateForInterpretation(interp: Map[String, Boolean]): Option[Boolean] =
     e.evaluateForInterpretation(interp).map(!_)
 
-  override lazy val isDNF: Boolean = e.isLiteral
+  override lazy val isDNF: Boolean = isLiteral
 
-  override lazy val isLiteral: Boolean = e.isLiteral
-
-  override lazy val simplify: BooleanExpression = e.simplify match {
-    //case Not(expr) => expr // double negation
-    case expr => expr.negate
+  override lazy val isLiteral: Boolean = e match {
+      case Variable(_) => true
+      case _ => false
   }
 
-  override lazy val toDNF: BooleanExpression = e.negate.toDNF
+  override lazy val isSingleBinaryOperatorExpression: Boolean = isLiteral
+
+  override lazy val negate: BooleanExpression = e
+
+  override lazy val NNFtoDNF: BooleanExpression = e match {
+    case _: Variable => this
+    case Not(ee) => ee.NNFtoDNF
+    case _ => e.NNFtoDNF.negate
+  }
+
+  override lazy val simplify: BooleanExpression = e.simplify.negate
 
   override lazy val toNNF: BooleanExpression = {
     e match {
       case True => False
       case False => True
-      case Variable(symbol) => this
+      case Variable(_) => this
       case Not(e) => e.toNNF
       case Or(e1, e2) => And(Not(e1).toNNF, Not(e2).toNNF)
       case And(e1, e2) => Or(Not(e1).toNNF, Not(e2).toNNF)
     }
   }
-
-  override lazy val negate: BooleanExpression = e
 }
 
 case class Or(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpression {
@@ -233,30 +265,41 @@ case class Or(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpre
     */
   override lazy val isDNF: Boolean = e1.isDNF && e2.isDNF
 
+  override lazy val isSingleBinaryOperatorExpression: Boolean = {
+    (e1, e2) match {
+      case (x: Or, y: Or) => x.isSingleBinaryOperatorExpression && y.isSingleBinaryOperatorExpression
+      case (x, y) => x.isLiteral && y.isLiteral
+    }
+  }
+
+  override lazy val negate: BooleanExpression = And(e1.negate, e2.negate)
+
+  override lazy val NNFtoDNF: BooleanExpression = {
+    (e1, e2) match {
+      case (x, y) if x.isLiteral && y.isLiteral => this
+      case _ => Or(e1.NNFtoDNF, e2.NNFtoDNF)
+      //case (andExpr: And, y) if y.isLiteral => Or(andExpr.toDNF, y)
+      //case (x, andExpr: And) if x.isLiteral => Or(x, andExpr.toDNF)
+    }
+  }
+
   override lazy val simplify: BooleanExpression = (e1.simplify, e2.simplify) match {
     // identity laws
     case (expr, False) => expr
     case (False, expr) => expr
 
     // annihilator laws
-    case (expr, True) => True
-    case (True, expr) => True
+    case (_, True) => True
+    case (True, _) => True
 
     // idempotence
     case (expr1, expr2) if expr1.isEquivalentTo(expr2) => expr1
+
+    case (expr1, expr2) if expr1.negate.isEquivalentTo(expr2) => True
     case (expr1, expr2) => Or(expr1, expr2)
   }
 
   override lazy val toNNF: BooleanExpression = Or(e1.toNNF, e2.toNNF)
-
-  override lazy val toDNF: BooleanExpression = {
-    (e1, e2) match {
-      case (x, y) if x.isLiteral && y.isLiteral => this
-      case (andExpr: And, y) if y.isLiteral => Or(andExpr.toDNF, y)
-    }
-  }
-
-  override def negate: BooleanExpression = And(e1.negate, e2.negate)
 }
 
 case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpression {
@@ -270,17 +313,44 @@ case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpr
 
   /**
     * `true` iff this expression is in disjunctive normal form, `false` otherwise. For a conjunction, that can only be
-    * the case if its operands are literals.
+    * the case if its operands are literals or if they are conjunctions of literals.
     */
-  override lazy val isDNF: Boolean = e1.isLiteral && e2.isLiteral
+  override lazy val isDNF: Boolean = {
+    if (e1.isLiteral && e2.isLiteral) true
+    else {
+      (e1, e2) match {
+        case (_: Or, _) | (_, _: Or) => false
+        case (andExpr1: And, andExpr2: And) => andExpr1.isSingleBinaryOperatorExpression && andExpr2.isSingleBinaryOperatorExpression
+        case (andExpr: And, expr: BooleanExpression) if expr.isLiteral => andExpr.isSingleBinaryOperatorExpression
+        case (expr: BooleanExpression, andExpr: And) if expr.isLiteral => andExpr.isSingleBinaryOperatorExpression
+      }
+    }
+  }
 
-  override lazy val toNNF: BooleanExpression = And(e1.toNNF, e2.toNNF)
-
-  override lazy val toDNF: BooleanExpression = {
+  override lazy val isSingleBinaryOperatorExpression: Boolean = {
     (e1, e2) match {
-      case (x, y) if x.isLiteral && y.isLiteral => this
-      case (And(x, y), z) if z.isLiteral => And(e1.toDNF, z)
-      case (x, And(y, z)) if x.isLiteral => And(x, e2.toDNF)
+      case (x: And, y: And) => x.isSingleBinaryOperatorExpression && y.isSingleBinaryOperatorExpression
+      case (x: And, y) => x.isSingleBinaryOperatorExpression && y.isLiteral
+      case (x, y: And) => y.isSingleBinaryOperatorExpression && x.isLiteral
+      case (x, y) => x.isLiteral && y.isLiteral
+    }
+  }
+
+  override lazy val negate: BooleanExpression = Or(e1.negate, e2.negate)
+
+  override lazy val NNFtoDNF: BooleanExpression = {
+    if (this.isSingleBinaryOperatorExpression) this
+    else {
+      (e1, e2) match {
+        case (Or(x, y), z) => Or(And(x, z).NNFtoDNF, And(y, z).NNFtoDNF)
+        case (x, Or(y, z)) => Or(And(x, y).NNFtoDNF, And(x, z).NNFtoDNF)
+        case (And(_, _), y) if y.isLiteral => And(e1.NNFtoDNF, y).NNFtoDNF
+        case (x, And(_, _)) if x.isLiteral => And(x, e2.NNFtoDNF).NNFtoDNF
+        case (andExpr1: And, andExpr2: And) if andExpr1.isSingleBinaryOperatorExpression && andExpr2.isSingleBinaryOperatorExpression => this
+        case (andExpr1: And, andExpr2: And) =>
+          And(andExpr1.NNFtoDNF, andExpr2.NNFtoDNF).NNFtoDNF
+        case _ => And(e1.NNFtoDNF, e2.NNFtoDNF).NNFtoDNF
+      }
     }
   }
 
@@ -295,10 +365,12 @@ case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpr
 
     // idempotence
     case (expr1, expr2) if expr1.isEquivalentTo(expr2) => expr1
+    case (expr1, expr2) if expr1.negate.isEquivalentTo(expr2) => False
+
     case (expr1, expr2) => And(expr1, expr2)
   }
 
-  override lazy val negate: BooleanExpression = Or(e1.negate, e2.negate)
+  override lazy val toNNF: BooleanExpression = And(e1.toNNF, e2.toNNF)
 }
 
 object BooleanExpression {
@@ -331,9 +403,10 @@ object BooleanExpression {
   }
 
   /**
-    * Deserialize a JValue (representing some JSON segment).
-    * @param jv the JValue to serialize
-    * @return A `Some` containing the deserialized BooleanExpression, or a `None` if the JSON was malformed
+    * Deserialize a `JValue` (representing some JSON segment).
+    * @param jv the `JValue` to serialize
+    * @return A [[scala.Some Some]] containing the deserialized [[boolexps.BooleanExpression BooleanExpression]], or a
+    *         [[scala.None None]] if the JSON was malformed.
     */
   private def deserialize(jv: JValue): Option[BooleanExpression] = {
     jv match {
@@ -355,20 +428,29 @@ object BooleanExpression {
     }
   }
 
+  /**
+    * Deserialize a JSON [[java.lang.String String]] to its [[boolexps.BooleanExpression BooleanExpression]]
+    * representation.
+    * @param s
+    * @return
+    */
   def deserialize(s: String): Option[BooleanExpression] = {
     try {
       deserialize(parse(s))
     } catch {
-      case parseException: JsonParser.ParseException => None
+      case _: JsonParser.ParseException => None
     }
   }
 
   /**
-    * Given a `Set` of variable names, generates all possible logical interpretations (an assignment of `true` or
+    * Given a [[scala.collection.immutable.Set Set]] of variable names, generates all possible logical interpretations (an assignment of `true` or
     * `false` to each variable) for the given variables.
     *
-    * @param variables a `Set` of `String`s corresponding to variable names
-    * @return a `List` of `Map`s whose keys are variable names and whose values are `true`/`false` assignments.
+    * @param variables a [[scala.collection.immutable.Set Set]] of [[java.lang.String Strings]] corresponding to
+    *                  variable names
+    * @return a comprehensive [[scala.collection.immutable.List List]] of all possible interpretations, each represented
+    *         as a [[scala.collection.immutable.Map Map]] whose keys are variable names and whose values are
+    *         the corresponding `true`/`false` assignments.
     */
   private def makeInterpretations(variables: Set[String]): Set[Map[String, Boolean]] = {
     variables.foldLeft(Set[Map[String, Boolean]]()) {
@@ -377,12 +459,5 @@ object BooleanExpression {
         else acc.map(_ + (variable -> true)) ++ acc.map(_ + (variable -> false))
       }
     }
-  }
-
-  def main(args: Array[String]): Unit = {
-    val w = Variable("w")
-    val x = Variable("x")
-    val y = Variable("y")
-    val z = Variable("z")
   }
 }
