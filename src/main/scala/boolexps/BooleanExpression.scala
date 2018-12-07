@@ -135,10 +135,10 @@ sealed trait BooleanExpression {
   /** Simplifies this expression according to a specific subset of the laws of boolean algebra.
     *
     * This function makes no guarantees regarding how or to what extent the expression will be simplified, other than
-    * that the resultant expression will be logically equivalent to the current one, and that literals will not be
-    * modified.
+    * that the resultant expression will be logically equivalent to the current one. To simplify this expression in a
+    * more precise manner, use one of the normal form functions: `toNNF()` or `toDNF()`.
     *
-    * @return a `BooleanExpression` equivalent to the current object, which may be simplified to some degree.
+    * @return a `BooleanExpression` equivalent to the current object, but structurally simplified to some degree.
     */
   def simplify: BooleanExpression = this // operator case classes override this.
 
@@ -149,8 +149,7 @@ sealed trait BooleanExpression {
 
   /** Generates the JSON-serialized equivalent of this expression.
     *
-    * For a description of the grammar of the
-    * JSON, see this class' documentation.
+    * For a description of the grammar of the JSON, see this class' documentation.
     */
   def toJSON: String = {
     val s: String = {
@@ -259,28 +258,26 @@ case class Or(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpre
     }
   }
 
-  /**
-    * `true` iff this expression is in disjunctive normal form, `false` otherwise. For a disjunction, that can only be
+  /** `true` iff this expression is in disjunctive normal form, `false` otherwise. For a disjunction, that can only be
     * the case if its operands are themselves in disjunctive normal form.
     */
   override lazy val isDNF: Boolean = e1.isDNF && e2.isDNF
 
   override lazy val isClause: Boolean = {
     (e1, e2) match {
-      case (x: Or, y: Or) => x.isClause && y.isClause
-      case (x, y) => x.isLiteral && y.isLiteral
+      // a conjunction inside a disjunction means the disjunction cannot be a clause
+      case (And(_,_), And(_, _)) | (And(_,_), _) | (_, And(_, _)) => false
+
+      // we must go deeper
+      case (x, y) => x.isClause && y.isClause
     }
   }
 
   override lazy val negate: BooleanExpression = And(e1.negate, e2.negate)
 
   override lazy val NNFtoDNF: BooleanExpression = {
-    (e1, e2) match {
-      case (x, y) if x.isLiteral && y.isLiteral => this
-      case _ => Or(e1.NNFtoDNF, e2.NNFtoDNF)
-      //case (andExpr: And, y) if y.isLiteral => Or(andExpr.toDNF, y)
-      //case (x, andExpr: And) if x.isLiteral => Or(x, andExpr.toDNF)
-    }
+    if (isClause) this // a disjunctive clause already is in DNF
+    else Or(e1.NNFtoDNF, e2.NNFtoDNF) // a disjunction of two expressions in DNF will always also be in DNF
   }
 
   override lazy val simplify: BooleanExpression = (e1.simplify, e2.simplify) match {
@@ -313,26 +310,17 @@ case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpr
 
   /**
     * `true` iff this expression is in disjunctive normal form, `false` otherwise. For a conjunction, that can only be
-    * the case if its operands are literals or if they are conjunctions of literals.
+    * the case if it is a conjunctive clause.
     */
-  override lazy val isDNF: Boolean = {
-    if (e1.isLiteral && e2.isLiteral) true
-    else {
-      (e1, e2) match {
-        case (_: Or, _) | (_, _: Or) => false
-        case (andExpr1: And, andExpr2: And) => andExpr1.isClause && andExpr2.isClause
-        case (andExpr: And, expr: BooleanExpression) if expr.isLiteral => andExpr.isClause
-        case (expr: BooleanExpression, andExpr: And) if expr.isLiteral => andExpr.isClause
-      }
-    }
-  }
+  override lazy val isDNF: Boolean = isClause
 
   override lazy val isClause: Boolean = {
     (e1, e2) match {
-      case (x: And, y: And) => x.isClause && y.isClause
-      case (x: And, y) => x.isClause && y.isLiteral
-      case (x, y: And) => y.isClause && x.isLiteral
-      case (x, y) => x.isLiteral && y.isLiteral
+      // a disjunction inside a conjunction means the conjunction cannot be a clause
+      case (Or(_,_), Or(_, _)) | (Or(_,_), _) | (_, Or(_, _)) => false
+
+      // we must go deeper
+      case (x, y) => x.isClause && y.isClause
     }
   }
 
@@ -342,13 +330,16 @@ case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpr
     if (this.isClause) this
     else {
       (e1, e2) match {
+        // distribute conjunction over disjunction: p && (q || r) == (p && q) || (q && r)
         case (Or(x, y), z) => Or(And(x, z).NNFtoDNF, And(y, z).NNFtoDNF)
         case (x, Or(y, z)) => Or(And(x, y).NNFtoDNF, And(x, z).NNFtoDNF)
+
+        // literals do not need to be reduced further
         case (And(_, _), y) if y.isLiteral => And(e1.NNFtoDNF, y).NNFtoDNF
         case (x, And(_, _)) if x.isLiteral => And(x, e2.NNFtoDNF).NNFtoDNF
+
+        // a conjunctive clause is, by definition, in DNF already
         case (andExpr1: And, andExpr2: And) if andExpr1.isClause && andExpr2.isClause => this
-        case (andExpr1: And, andExpr2: And) =>
-          And(andExpr1.NNFtoDNF, andExpr2.NNFtoDNF).NNFtoDNF
         case _ => And(e1.NNFtoDNF, e2.NNFtoDNF).NNFtoDNF
       }
     }
@@ -431,7 +422,9 @@ object BooleanExpression {
   /**
     * Deserialize a JSON [[java.lang.String String]] to its [[boolexps.BooleanExpression BooleanExpression]]
     * representation.
-    * @param s
+    * @param s the JSON to be deserialized. See the class documentation for
+    *          [[boolexps.BooleanExpression BooleanExpression]] for a full explanation on how the JSON should be
+    *          formatted
     * @return
     */
   def deserialize(s: String): Option[BooleanExpression] = {
