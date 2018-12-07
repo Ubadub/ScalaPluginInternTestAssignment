@@ -107,19 +107,19 @@ sealed trait BooleanExpression {
     */
   def isLiteral: Boolean = false // literal case classes override this
 
-  /** Determines if this expression has only one binary operator.
+  /** Determines if this expression is a [[https://en.wikipedia.org/wiki/Clause_(logic) logical clause]].
     * <br>
-    * An expression has only one binary operator if it consists only of [[boolexps.Variable variables]],
+    * A BooleanExpression is a logical clause iff it consists only of [[boolexps.Variable variables]],
     * [[boolexps.Not negations]] of variables, and a single binary operator: either [[boolexps.Or Or]] or
-    * [[boolexps.And]], but not both. In other words, a single-binary-operator expression is either an Or of Ors, or an
-    * And of Ands.
+    * [[boolexps.And]], but not both. In other words, a logical clause is either a disjunction or a conjunction of a
+    * finite number of literals
     * <br>
-    * @return
+    * @return `true` if this clause is a logical clause, `false` otherwise
     */
-  def isSingleBinaryOperatorExpression: Boolean
+  def isClause: Boolean
 
   /** Negate this expression. The result is logically, but not necessarily structurally, equivalent to wrapping the
-    * expression in [[boolexps.Not Not()]].
+    * expression in [[boolexps.Not Not]].
     * @return the negation of this expression.
     */
   def negate: BooleanExpression
@@ -156,8 +156,8 @@ sealed trait BooleanExpression {
     val s: String = {
       this match {
         case Not(e) => s""""NOT", ${e toJSON}"""
-        case Or(e1, e2) => s""""OR", ${e1 toJSON}, ${e2 toJSON} """
-        case And(e1, e2) => s""""AND", ${e1 toJSON}, ${e2 toJSON} """
+        case Or(e1, e2) => s""""OR", ${e1 toJSON}, ${e2 toJSON}"""
+        case And(e1, e2) => s""""AND", ${e1 toJSON}, ${e2 toJSON}"""
       }
     }
     '[' + s + ']'
@@ -174,7 +174,7 @@ case object True extends BooleanExpression {
 
   override lazy val isLiteral: Boolean = true
 
-  override lazy val isSingleBinaryOperatorExpression: Boolean = true
+  override lazy val isClause: Boolean = true
 
   override lazy val toJSON: String = "true"
 
@@ -188,7 +188,7 @@ case object False extends BooleanExpression {
 
   override lazy val isLiteral: Boolean = true
 
-  override lazy val isSingleBinaryOperatorExpression: Boolean = true
+  override lazy val isClause: Boolean = true
 
   override lazy val negate: BooleanExpression = True
 
@@ -204,7 +204,7 @@ case class Variable(symbol: String) extends BooleanExpression {
 
   override lazy val isLiteral: Boolean = true
 
-  override lazy val isSingleBinaryOperatorExpression: Boolean = true
+  override lazy val isClause: Boolean = true
 
   override lazy val negate: BooleanExpression = Not(this)
 
@@ -226,7 +226,7 @@ case class Not(e: BooleanExpression) extends BooleanExpression {
       case _ => false
   }
 
-  override lazy val isSingleBinaryOperatorExpression: Boolean = isLiteral
+  override lazy val isClause: Boolean = isLiteral
 
   override lazy val negate: BooleanExpression = e
 
@@ -265,9 +265,9 @@ case class Or(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpre
     */
   override lazy val isDNF: Boolean = e1.isDNF && e2.isDNF
 
-  override lazy val isSingleBinaryOperatorExpression: Boolean = {
+  override lazy val isClause: Boolean = {
     (e1, e2) match {
-      case (x: Or, y: Or) => x.isSingleBinaryOperatorExpression && y.isSingleBinaryOperatorExpression
+      case (x: Or, y: Or) => x.isClause && y.isClause
       case (x, y) => x.isLiteral && y.isLiteral
     }
   }
@@ -320,18 +320,18 @@ case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpr
     else {
       (e1, e2) match {
         case (_: Or, _) | (_, _: Or) => false
-        case (andExpr1: And, andExpr2: And) => andExpr1.isSingleBinaryOperatorExpression && andExpr2.isSingleBinaryOperatorExpression
-        case (andExpr: And, expr: BooleanExpression) if expr.isLiteral => andExpr.isSingleBinaryOperatorExpression
-        case (expr: BooleanExpression, andExpr: And) if expr.isLiteral => andExpr.isSingleBinaryOperatorExpression
+        case (andExpr1: And, andExpr2: And) => andExpr1.isClause && andExpr2.isClause
+        case (andExpr: And, expr: BooleanExpression) if expr.isLiteral => andExpr.isClause
+        case (expr: BooleanExpression, andExpr: And) if expr.isLiteral => andExpr.isClause
       }
     }
   }
 
-  override lazy val isSingleBinaryOperatorExpression: Boolean = {
+  override lazy val isClause: Boolean = {
     (e1, e2) match {
-      case (x: And, y: And) => x.isSingleBinaryOperatorExpression && y.isSingleBinaryOperatorExpression
-      case (x: And, y) => x.isSingleBinaryOperatorExpression && y.isLiteral
-      case (x, y: And) => y.isSingleBinaryOperatorExpression && x.isLiteral
+      case (x: And, y: And) => x.isClause && y.isClause
+      case (x: And, y) => x.isClause && y.isLiteral
+      case (x, y: And) => y.isClause && x.isLiteral
       case (x, y) => x.isLiteral && y.isLiteral
     }
   }
@@ -339,14 +339,14 @@ case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpr
   override lazy val negate: BooleanExpression = Or(e1.negate, e2.negate)
 
   override lazy val NNFtoDNF: BooleanExpression = {
-    if (this.isSingleBinaryOperatorExpression) this
+    if (this.isClause) this
     else {
       (e1, e2) match {
         case (Or(x, y), z) => Or(And(x, z).NNFtoDNF, And(y, z).NNFtoDNF)
         case (x, Or(y, z)) => Or(And(x, y).NNFtoDNF, And(x, z).NNFtoDNF)
         case (And(_, _), y) if y.isLiteral => And(e1.NNFtoDNF, y).NNFtoDNF
         case (x, And(_, _)) if x.isLiteral => And(x, e2.NNFtoDNF).NNFtoDNF
-        case (andExpr1: And, andExpr2: And) if andExpr1.isSingleBinaryOperatorExpression && andExpr2.isSingleBinaryOperatorExpression => this
+        case (andExpr1: And, andExpr2: And) if andExpr1.isClause && andExpr2.isClause => this
         case (andExpr1: And, andExpr2: And) =>
           And(andExpr1.NNFtoDNF, andExpr2.NNFtoDNF).NNFtoDNF
         case _ => And(e1.NNFtoDNF, e2.NNFtoDNF).NNFtoDNF
