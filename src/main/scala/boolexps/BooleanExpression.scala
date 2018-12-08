@@ -1,13 +1,16 @@
 package boolexps
 
 import scala.languageFeature.postfixOps
-import net.liftweb.json._
+
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 
 /** Represents a boolean statement that can encode conjunctions, disjunctions, negations, atoms (named variables), and
   * any combination of those.
   * <br><br>
   * Can be serialized to JSON and deserialized from JSON (the latter uses a function in the companion object). The
-  * generated JSON is compliant with [[https://tools.ietf.org/html/rfc8259#section-2 RFC 8259]]
+  * generated JSON is compliant with [[https://tools.ietf.org/html/rfc8259#section-2 RFC 8259]].
+  *
   * <br><br>
   * The structure of the JSON is inspired by LISP S-Expressions. The Extended Bachus-Naur form describing the grammar of
   * all valid JSON strings is given below, but in essence it is composed of boolean literals ("true", "false"), string
@@ -145,21 +148,21 @@ sealed trait BooleanExpression {
   /** Convert this expression to disjunctive normal form.
     * @return the disjunctive normal form equivalent of this BooleanExpression.
     */
-  final lazy val toDNF: BooleanExpression = toNNF.simplify.NNFtoDNF
+  final lazy val toDNF: BooleanExpression = toNNF.simplify.NNFtoDNF.simplify
 
   /** Generates the JSON-serialized equivalent of this expression.
     *
     * For a description of the grammar of the JSON, see this class' documentation.
     */
-  def toJSON: String = {
-    val s: String = {
+  implicit def toJson: JValue = {
+    val json: JValue = {
       this match {
-        case Not(e) => s""""NOT", ${e toJSON}"""
-        case Or(e1, e2) => s""""OR", ${e1 toJSON}, ${e2 toJSON}"""
-        case And(e1, e2) => s""""AND", ${e1 toJSON}, ${e2 toJSON}"""
+        case Not(e) => JArray(List(JString("NOT"), e.toJson))
+        case Or(e1, e2) => JArray(List(JString("OR"), e1.toJson, e2.toJson))
+        case And(e1, e2) => JArray(List(JString("AND"), e1.toJson, e2.toJson))
       }
     }
-    '[' + s + ']'
+    json
   }
 
   /** Convert this expression to negation normal form.
@@ -175,7 +178,7 @@ case object True extends BooleanExpression {
 
   override lazy val isClause: Boolean = true
 
-  override lazy val toJSON: String = "true"
+  override lazy val toJson: JValue = JBool(true)
 
   override lazy val negate: BooleanExpression = False
 
@@ -193,10 +196,12 @@ case object False extends BooleanExpression {
 
   override lazy val NNFtoDNF: BooleanExpression = this
 
-  override lazy val toJSON: String = "false"
+  override lazy val toJson: JValue = JBool(false)
 }
 
 case class Variable(symbol: String) extends BooleanExpression {
+  require(symbol.replaceAll("\\s+","").length > 0)
+
   override lazy val allVars: Set[String] = Set(symbol)
 
   override def evaluateForInterpretation(interp: Map[String, Boolean]): Option[Boolean] = interp.get(symbol)
@@ -209,7 +214,7 @@ case class Variable(symbol: String) extends BooleanExpression {
 
   override lazy val NNFtoDNF: BooleanExpression = this
 
-  override lazy val toJSON: String = s""""$symbol""""
+  override lazy val toJson: JValue = JString(symbol)
 }
 
 case class Not(e: BooleanExpression) extends BooleanExpression {
@@ -379,13 +384,13 @@ object BooleanExpression {
       case (jb: JBool) :: Nil => deserialize(jb)
 
       // Not takes one operand
-      case JString(s) :: t :: Nil if s.toUpperCase == "NOT" => deserialize(t).map(Not)
+      case JString(s) :: t :: Nil if s.toUpperCase.replaceAll("\\s+","") == "NOT" => deserialize(t).map(Not)
 
       // Or & And take two operands each
-      case JString(s) :: t1 :: t2 :: Nil if s.toUpperCase == "OR" =>
+      case JString(s) :: t1 :: t2 :: Nil if s.toUpperCase.replaceAll("\\s+","") == "OR" =>
         for (e1 <- deserialize(t1); e2 <- deserialize(t2)) yield Or(e1, e2)
 
-      case JString(s) :: t1 :: t2 :: Nil if s.toUpperCase == "AND" =>
+      case JString(s) :: t1 :: t2 :: Nil if s.toUpperCase.replaceAll("\\s+","") == "AND" =>
         for (e1 <- deserialize(t1); e2 <- deserialize(t2)) yield And(e1, e2)
 
       // if we got this far, the JSON was malformed
@@ -399,12 +404,12 @@ object BooleanExpression {
     * @return A [[scala.Some Some]] containing the deserialized [[boolexps.BooleanExpression BooleanExpression]], or a
     *         [[scala.None None]] if the JSON was malformed.
     */
-  private def deserialize(jv: JValue): Option[BooleanExpression] = {
+  def deserialize(jv: JValue): Option[BooleanExpression] = {
     jv match {
       case JsonAST.JString(s) => {
         // check that the String isn't a reserved keyword, otherwise make it a variable
-        val sUpper = s.toUpperCase
-        if (sUpper == "NOT" || sUpper == "OR" || sUpper == "AND") None
+        val sUpper = s.toUpperCase.replaceAll("\\s+","")
+        if (sUpper.length == 0 || sUpper == "NOT" || sUpper == "OR" || sUpper == "AND") None
         else Option(Variable(s))
       }
 
@@ -431,7 +436,7 @@ object BooleanExpression {
     try {
       deserialize(parse(s))
     } catch {
-      case _: JsonParser.ParseException => None
+      case _: Throwable => None
     }
   }
 

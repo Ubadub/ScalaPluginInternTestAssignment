@@ -1,6 +1,7 @@
 package boolexps
 
 import org.scalacheck.Gen
+
 import boolexps.TestUtils._
 
 /**

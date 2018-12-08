@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<module external.linked.project.id="scalaplugininterntestassignment-build [file:/Users/ubpatil/Documents/Projects/Scala/ScalaPluginInternTestAssignment/]" external.linked.project.path="$MODULE_DIR$/../../project" external.root.project.path="$MODULE_DIR$/../.." external.system.id="SBT" sbt.imports="_root_.sbt.Keys._, _root_.sbt.ScriptedPlugin.autoImport._, _root_.org.jetbrains.sbt.IdeaShellPlugin.autoImport._, _root_.sbt._, _root_.sbt.plugins.IvyPlugin, _root_.sbt.plugins.JvmPlugin, _root_.sbt.plugins.CorePlugin, _root_.sbt.ScriptedPlugin, _root_.sbt.plugins.SbtPlugin, _root_.sbt.plugins.JUnitXmlReportPlugin, _root_.sbt.plugins.Giter8TemplatePlugin, _root_.org.jetbrains.sbt.StructurePlugin, _root_.org.jetbrains.sbt.IdeaShellPlugin, _root_.scala.xml.{TopScope=&gt;SUB:DOLLARscope}" sbt.resolvers="https://repo1.maven.org/maven2/|maven|public, file:/Users/ubpatil/.sbt/preloaded/|maven|local-preloaded, /Users/ubpatil/.ivy2/cache|ivy|Local cache" type="SBT_MODULE" version="4">
+<module external.linked.project.id="scalaplugininterntestassignment-build [file:/Users/ubpatil/Documents/Projects/Scala/ScalaPluginInternTestAssignment/]" external.linked.project.path="$MODULE_DIR$/../../project" external.root.project.path="$MODULE_DIR$/../.." external.system.id="SBT" sbt.imports="_root_.sbt.Keys._, _root_.sbt.ScriptedPlugin.autoImport._, _root_.org.jetbrains.sbt.IdeaShellPlugin.autoImport._, _root_.play.twirl.sbt.SbtTwirl.autoImport._, _root_.org.scalatra.sbt.DistPlugin.autoImport._, _root_.org.scalatra.sbt.JRebelPlugin.autoImport._, _root_.org.scalatra.sbt.ScalatraPlugin.autoImport._, _root_.com.earldouglas.xwp.ContainerPlugin.autoImport._, _root_.com.earldouglas.xwp.ElasticBeanstalkDeployPlugin.autoImport._, _root_.com.earldouglas.xwp.HerokuDeploy.autoImport._, _root_.com.earldouglas.xwp.JettyPlugin.autoImport._, _root_.com.earldouglas.xwp.TomcatPlugin.autoImport._, _root_.com.earldouglas.xwp.WarPlugin.autoImport._, _root_.com.earldouglas.xwp.WebappPlugin.autoImport._, _root_.sbt._, _root_.sbt.plugins.IvyPlugin, _root_.sbt.plugins.JvmPlugin, _root_.sbt.plugins.CorePlugin, _root_.sbt.ScriptedPlugin, _root_.sbt.plugins.SbtPlugin, _root_.sbt.plugins.JUnitXmlReportPlugin, _root_.sbt.plugins.Giter8TemplatePlugin, _root_.org.jetbrains.sbt.StructurePlugin, _root_.org.jetbrains.sbt.IdeaShellPlugin, _root_.play.twirl.sbt.SbtTwirl, _root_.org.scalatra.sbt.DistPlugin, _root_.org.scalatra.sbt.JRebelPlugin, _root_.org.scalatra.sbt.ScalatraPlugin, _root_.com.earldouglas.xwp.ContainerPlugin, _root_.com.earldouglas.xwp.ElasticBeanstalkDeployPlugin, _root_.com.earldouglas.xwp.HerokuDeploy, _root_.com.earldouglas.xwp.JettyPlugin, _root_.com.earldouglas.xwp.TomcatPlugin, _root_.com.earldouglas.xwp.WarPlugin, _root_.com.earldouglas.xwp.WebappPlugin, _root_.scala.xml.{TopScope=&gt;SUB:DOLLARscope}" sbt.resolvers="https://repo1.maven.org/maven2/|maven|public, file:/Users/ubpatil/.sbt/preloaded/|maven|local-preloaded, /Users/ubpatil/.ivy2/cache|ivy|Local cache" type="SBT_MODULE" version="4">
   <component name="NewModuleRootManager">
     <output url="file://$MODULE_DIR$/../../project/target/idea-classes" />
     <output-test url="file://$MODULE_DIR$/../../project/target/idea-test-classes" />
@@ -14,8 +14,30 @@
     <orderEntry type="module-library">
       <library name="sbt: sbt-and-plugins">
         <CLASSES>
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.amazonaws/aws-java-sdk-core/jars/aws-java-sdk-core-1.11.105.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.amazonaws/aws-java-sdk-elasticbeanstalk/jars/aws-java-sdk-elasticbeanstalk-1.11.105.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.amazonaws/aws-java-sdk-kms/jars/aws-java-sdk-kms-1.11.105.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.amazonaws/aws-java-sdk-s3/jars/aws-java-sdk-s3-1.11.105.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.amazonaws/jmespath-java/jars/jmespath-java-1.11.105.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.fasterxml.jackson.core/jackson-annotations/bundles/jackson-annotations-2.6.0.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.fasterxml.jackson.core/jackson-core/bundles/jackson-core-2.6.6.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.fasterxml.jackson.core/jackson-databind/bundles/jackson-databind-2.6.6.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.fasterxml.jackson.dataformat/jackson-dataformat-cbor/bundles/jackson-dataformat-cbor-2.6.6.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.typesafe.play/twirl-api_2.12/jars/twirl-api_2.12-1.3.13.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.typesafe.play/twirl-compiler_2.12/jars/twirl-compiler_2.12-1.3.13.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/com.typesafe.play/twirl-parser_2.12/jars/twirl-parser_2.12-1.3.13.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/commons-codec/commons-codec/jars/commons-codec-1.9.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/commons-logging/commons-logging/jars/commons-logging-1.1.3.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/joda-time/joda-time/jars/joda-time-2.8.1.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.apache.httpcomponents/httpclient/jars/httpclient-4.5.2.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.apache.httpcomponents/httpcore/jars/httpcore-4.4.4.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-lang.modules/scala-xml_2.12/bundles/scala-xml_2.12-1.0.6.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.12/sbt_1.0/com.earldouglas/xsbt-web-plugin/jars/xsbt-web-plugin-4.0.2.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.12/sbt_1.0/com.typesafe.sbt/sbt-twirl/jars/sbt-twirl-1.3.13.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.12/sbt_1.0/org.jetbrains/sbt-idea-shell/jars/sbt-idea-shell-2017.2.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.12/sbt_1.0/org.jetbrains/sbt-structure-extractor/jars/sbt-structure-extractor-2018.2.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.12/sbt_1.0/org.scalatra.sbt/sbt-scalatra/jars/sbt-scalatra-1.0.2.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/software.amazon.ion/ion-java/bundles/ion-java-1.0.2.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.7/lib/jline.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.7/lib/scala-compiler.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.7/lib/scala-library.jar!/" />
@@ -110,6 +132,6 @@
   <component name="SbtModule">
     <option name="buildForId" value="scalaplugininterntestassignment" />
     <option name="buildForURI" value="file:$MODULE_DIR$/../../" />
-    <option name="imports" value="_root_.sbt.Keys._, _root_.sbt.ScriptedPlugin.autoImport._, _root_.org.jetbrains.sbt.IdeaShellPlugin.autoImport._, _root_.sbt._, _root_.sbt.plugins.IvyPlugin, _root_.sbt.plugins.JvmPlugin, _root_.sbt.plugins.CorePlugin, _root_.sbt.ScriptedPlugin, _root_.sbt.plugins.SbtPlugin, _root_.sbt.plugins.JUnitXmlReportPlugin, _root_.sbt.plugins.Giter8TemplatePlugin, _root_.org.jetbrains.sbt.StructurePlugin, _root_.org.jetbrains.sbt.IdeaShellPlugin, _root_.scala.xml.{TopScope=&gt;SUB:DOLLARscope}" />
+    <option name="imports" value="_root_.sbt.Keys._, _root_.sbt.ScriptedPlugin.autoImport._, _root_.org.jetbrains.sbt.IdeaShellPlugin.autoImport._, _root_.play.twirl.sbt.SbtTwirl.autoImport._, _root_.org.scalatra.sbt.DistPlugin.autoImport._, _root_.org.scalatra.sbt.JRebelPlugin.autoImport._, _root_.org.scalatra.sbt.ScalatraPlugin.autoImport._, _root_.com.earldouglas.xwp.ContainerPlugin.autoImport._, _root_.com.earldouglas.xwp.ElasticBeanstalkDeployPlugin.autoImport._, _root_.com.earldouglas.xwp.HerokuDeploy.autoImport._, _root_.com.earldouglas.xwp.JettyPlugin.autoImport._, _root_.com.earldouglas.xwp.TomcatPlugin.autoImport._, _root_.com.earldouglas.xwp.WarPlugin.autoImport._, _root_.com.earldouglas.xwp.WebappPlugin.autoImport._, _root_.sbt._, _root_.sbt.plugins.IvyPlugin, _root_.sbt.plugins.JvmPlugin, _root_.sbt.plugins.CorePlugin, _root_.sbt.ScriptedPlugin, _root_.sbt.plugins.SbtPlugin, _root_.sbt.plugins.JUnitXmlReportPlugin, _root_.sbt.plugins.Giter8TemplatePlugin, _root_.org.jetbrains.sbt.StructurePlugin, _root_.org.jetbrains.sbt.IdeaShellPlugin, _root_.play.twirl.sbt.SbtTwirl, _root_.org.scalatra.sbt.DistPlugin, _root_.org.scalatra.sbt.JRebelPlugin, _root_.org.scalatra.sbt.ScalatraPlugin, _root_.com.earldouglas.xwp.ContainerPlugin, _root_.com.earldouglas.xwp.ElasticBeanstalkDeployPlugin, _root_.com.earldouglas.xwp.HerokuDeploy, _root_.com.earldouglas.xwp.JettyPlugin, _root_.com.earldouglas.xwp.TomcatPlugin, _root_.com.earldouglas.xwp.WarPlugin, _root_.com.earldouglas.xwp.WebappPlugin, _root_.scala.xml.{TopScope=&gt;SUB:DOLLARscope}" />
   </component>
 </module>

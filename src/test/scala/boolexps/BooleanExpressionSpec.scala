@@ -1,8 +1,9 @@
 package boolexps
 
-import org.scalatest.{FlatSpec}
+import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
+
 import TestDataGenerators._
 
 /**
