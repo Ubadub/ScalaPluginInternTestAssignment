@@ -10,6 +10,10 @@ Submission for the test assignment for summer 2019 Scala plugin internship candi
 
 [BooleanExpression Project](#booleanexpression-project)
 
+[Algebraic Transformation Server](#algebraic-transformation-server)
+
+[Algebraic Transformation Client](#algebraic-transformation-client)
+
 ## Project Choice
 
 Of the suggested projects, two are especially interesting to me: giter8 templates integration and Build Server Protocol implementations.
@@ -36,6 +40,23 @@ We can do even better. The third function I wrote, `fff(x: Int): Int`, takes adv
 
 The source code for this is located in `/src/main/scala/boolexps/`. Tests for serialization and deserialization are located in `/src/test/scala/boolexps/BooleanExpressionSerializationTestSuite.scala`, and tests for the functionality of the `BooleanExpression` class itself, including the algebraic transformation functions, are in `/src/test/scala/boolexps/BooleanExpressionSpec.scala`.
 
-I had a great deal of fun with this project, so thank you for assigning it. My implementation meets the basic requirements of being able to serialize/deserialize `BooleanExpressions` to and from JSON, and it also provides functionality for algebraic transformations: converting a `BooleanExpression` to negation normal form, to disjunctive normal form, or just simplifying per the laws of boolean algebra. Finally, I also created a server that offers the transformations as a service and a client that a user can use to communicate with the server (details of how to run the server and use the client are in the next section). All of this functionality is extensively tested.
+I had a great deal of fun with this project, so thank you for assigning it. My implementation meets the basic requirements of being able to serialize/deserialize `BooleanExpressions` to and from JSON, and it also provides functionality for algebraic transformations: converting a `BooleanExpression` to negation normal form, to disjunctive normal form, or just simplifying per the laws of boolean algebra. Finally, I also created a server that offers the transformations as a service and a client that a user can use to communicate with the server (details of how to run the server and use the client are in the next sections). The serialization/deserialization and algebraic transformation functionality is extensively tested.
+
+The grammar of the JSON is explained in the Scaladoc comment for the `BooleanExpression` trait in `BooleanExpression.scala`.
 
 ## Algebraic Transformation Server
+
+The code for the server is primarily in `/src/main/scala/server/`. The easiest way to run the server is to enter a SBT shell in the root directory, type `jetty:start` and hit enter. The server listens at port 8080. It has the following API endpoints, all of which only accept POST requests whose payload is JSON representing a boolean expression:
+
+`/DNF` - returns the Boolean expression converted to disjunctive normal form
+
+`/NNF` - returns the Boolean expression converted to negation normal form
+
+`/simplify` - returns a simplified version of the Boolean expression
+
+Sending malformed JSON to any endpoint will cause the program to fail gracefully: the server will simply respond with an error message and keep listening at the same port.
+
+## Algebraic Transformation Client
+The code for the client is in `/src/main/scala/client/Client.scala`. The client is a command line program that elicits the location of a JSON file and the desired transformation operation from the user, queries the server, and returns the result.
+
+The easiest way to run the client is from inside Intellij: just run the main method of the Client.scala file. Equivalently, you can execute `sbt compile run` at the terminal. Alternatively, you can use the plugin sbt-assembly to compile and package a standalone JAR file (as explained [here](https://alvinalexander.com/scala/sbt-how-build-single-executable-jar-file-assembly)), which can then be executed. Obviously, the server must be listening for the client to work; otherwise, it will display an error message and quit.
