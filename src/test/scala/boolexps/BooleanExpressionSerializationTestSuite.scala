@@ -78,17 +78,4 @@ class BooleanExpressionSerializationTestSuite extends FlatSpec with GeneratorDri
       }
     }
   }
-
-  // Jackson treats unbalanced quote marks in an idiosyncratic/error-tolerant way, so this test is commented out for now
-  /*
-  "JSON with unbalanced quote marks" should "cause the deserializer to fail gracefully" in {
-    forAll(genUnbalancedQuotesJSON) {
-      boolJSON: String => {
-        whenever(boolJSON.nonEmpty) {
-          val deserialized: Option[BooleanExpression] = BooleanExpression.deserialize(boolJSON)
-          deserialized shouldBe empty
-        }
-      }
-    }
-  }*/
 }

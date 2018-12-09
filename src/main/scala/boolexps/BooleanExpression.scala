@@ -297,7 +297,27 @@ case class Or(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpre
     // idempotence
     case (expr1, expr2) if expr1.isEquivalentTo(expr2) => expr1
 
+    // complementation law
     case (expr1, expr2) if expr1.negate.isEquivalentTo(expr2) => True
+
+    // (a || b) || b == (a || b)
+    case (Or(a, b), c) if c.isEquivalentTo(a) || c.isEquivalentTo(b) => e1.simplify
+    case (a, Or(b, c)) if a.isEquivalentTo(b) || a.isEquivalentTo(c) => e2.simplify
+
+    // (a || b) || !b == true
+    case (Or(a, b), c) if c.negate.isEquivalentTo(a) || c.negate.isEquivalentTo(b) => True
+    case (a, Or(b, c)) if a.negate.isEquivalentTo(b) || a.negate.isEquivalentTo(c) => True
+
+    // absorption laws
+    case (And(a, b), c) if c.isEquivalentTo(a) || c.isEquivalentTo(b) => c
+    case (a, And(b, c)) if a.isEquivalentTo(b) || a.isEquivalentTo(c) => a
+
+    case (And(a, b), c) if c.negate.isEquivalentTo(a) => Or(b, c)
+    case (And(a, b), c) if c.negate.isEquivalentTo(b) => Or(a, c)
+
+    case (a, And(b, c)) if a.negate.isEquivalentTo(b) => Or(a, c)
+    case (a, And(b, c)) if a.negate.isEquivalentTo(c) => Or(a, b)
+
     case (expr1, expr2) => Or(expr1, expr2)
   }
 
@@ -356,12 +376,32 @@ case class And(e1: BooleanExpression, e2: BooleanExpression) extends BooleanExpr
     case (True, expr) => expr
 
     // annihilator laws
-    case (expr, False) => False
-    case (False, expr) => False
+    case (_, False) => False
+    case (False, _) => False
 
     // idempotence
     case (expr1, expr2) if expr1.isEquivalentTo(expr2) => expr1
+
+    // complementation law
     case (expr1, expr2) if expr1.negate.isEquivalentTo(expr2) => False
+
+    // (a && b) && b == (a && b)
+    case (And(a, b), c) if c.isEquivalentTo(a) || c.isEquivalentTo(b) => e1.simplify
+    case (a, And(b, c)) if a.isEquivalentTo(b) || a.isEquivalentTo(c) => e2.simplify
+
+    // (a && b) && !b == false
+    case (And(a, b), c) if c.negate.isEquivalentTo(a) || c.negate.isEquivalentTo(b) => False
+    case (a, And(b, c)) if a.negate.isEquivalentTo(b) || a.negate.isEquivalentTo(c) => False
+
+    // absorption laws
+    case (Or(a, b), c) if c.isEquivalentTo(a) || c.isEquivalentTo(b) => c
+    case (a, Or(b, c)) if a.isEquivalentTo(b) || a.isEquivalentTo(c) => a
+
+    case (Or(a, b), c) if c.negate.isEquivalentTo(a) => And(b, c)
+    case (Or(a, b), c) if c.negate.isEquivalentTo(b) => And(a, c)
+
+    case (a, Or(b, c)) if a.negate.isEquivalentTo(b) => And(a, c)
+    case (a, Or(b, c)) if a.negate.isEquivalentTo(c) => And(a, b)
 
     case (expr1, expr2) => And(expr1, expr2)
   }
@@ -408,8 +448,11 @@ object BooleanExpression {
     jv match {
       case JsonAST.JString(s) => {
         // check that the String isn't a reserved keyword, otherwise make it a variable
-        val sUpper = s.toUpperCase.replaceAll("\\s+","")
-        if (sUpper.length == 0 || sUpper == "NOT" || sUpper == "OR" || sUpper == "AND") None
+        val stripped = s.toUpperCase.replaceAll("\\s+","")
+        if (stripped.length == 0
+          || stripped.equalsIgnoreCase("NOT")
+          || stripped.equalsIgnoreCase("OR")
+          || stripped.equalsIgnoreCase("AND")) None
         else Option(Variable(s))
       }
 
@@ -436,7 +479,7 @@ object BooleanExpression {
     try {
       deserialize(parse(s))
     } catch {
-      case _: Throwable => None
+      case _: Exception => None
     }
   }
 

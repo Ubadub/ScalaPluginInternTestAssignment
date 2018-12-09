@@ -22,24 +22,4 @@ object Warmup {
   }
 
   def fff(x: Int): Int = 1 << x
-
-  def main(args: Array[String]): Unit = {
-    println(f(0))
-    println(f(1))
-    println(f(5))
-    println(f(7))
-    println(f(10))
-
-    println(ff(0))
-    println(ff(1))
-    println(ff(5))
-    println(ff(7))
-    println(ff(10))
-
-    println(fff(0))
-    println(fff(1))
-    println(fff(5))
-    println(fff(7))
-    println(fff(10))
-  }
 }

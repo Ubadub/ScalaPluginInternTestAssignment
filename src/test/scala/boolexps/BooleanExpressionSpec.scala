@@ -306,12 +306,6 @@ class BooleanExpressionSpec extends FlatSpec with GeneratorDrivenPropertyChecks 
     }
   }
 
-  it should "be reducible to negation normal form" in pending/*{
-    forAll(genThreeVarBoolExpr) {
-      b: BooleanExpression => assert(b.toNNF)
-    }
-  }*/
-
   it should "be equivalent to its negation normal form" in {
     forAll(genThreeVarBoolExpr) {
       b: BooleanExpression => assert(b isEquivalentTo b.toNNF)

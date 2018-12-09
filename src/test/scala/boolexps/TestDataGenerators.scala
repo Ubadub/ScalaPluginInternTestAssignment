@@ -131,13 +131,4 @@ object TestDataGenerators {
       }
     }
   }._1
-
-  lazy val genUnbalancedQuotesJSON: Gen[String] = {
-    for (boolJSON: String <- genBoolJSON;
-         idx: Int <- Gen.choose(0, boolJSON.length - 1)
-    ) yield s"""${boolJSON.substring(0, idx)}"${boolJSON.substring(idx)}"""
-  }
-
-  lazy val genMalformedJSON: Gen[String] =
-    Gen.oneOf(genUnbalancedBracesJSON, genUnbalancedBracketsJSON, genUnbalancedQuotesJSON)
 }

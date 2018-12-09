@@ -1,10 +1,10 @@
 import org.scalatra._
 import javax.servlet.ServletContext
 
-import server.BooleanAlgebraAPI
+import server.BooleanTransformationsAPI
 
 class ScalatraBootstrap extends LifeCycle {
   override def init(context: ServletContext) {
-    context.mount(new BooleanAlgebraAPI, "/*")
+    context.mount(new BooleanTransformationsAPI, "/*")
   }
 }
